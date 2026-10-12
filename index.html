@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>ЗІНИЦЯ — обʼємний зір з однієї камери</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Saira+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#000000; --panel:rgba(6,14,22,.72); --line:rgba(126,214,236,.28); --line-hi:rgba(160,236,250,.85);
+  --ink:#E8F3F8; --ink-dim:#8FA9B6; --ground:#2A6BC7; --cyan:#7FE6F2; --mint:#9FF2DB; --pink:#FF7FBF;
+  --r:6px; --font:"Saira Semi Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;background:var(--void);color:var(--ink);font-family:var(--font);overflow:hidden;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#gl{position:fixed;inset:0;width:100vw;height:100%;display:block;touch-action:none}
+#hud{position:fixed;left:12px;top:calc(10px + env(safe-area-inset-top,0px));font-size:12px;line-height:1.45;
+  color:var(--ink-dim);font-variant-numeric:tabular-nums;pointer-events:none;max-width:52vw}
+#hud b{color:var(--ink);font-weight:600}
+#hud .t{color:var(--ink);font-weight:700;font-size:14px;letter-spacing:.04em;margin-bottom:2px}
+#pip{position:fixed;right:10px;top:calc(10px + env(safe-area-inset-top,0px));width:34vw;max-width:260px;
+  border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:#000;aspect-ratio:4/3}
+#pip video,#pip canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#pip video{filter:saturate(.75) brightness(.9)}
+#labels{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+.lbl{position:absolute;transform:translate(-50%,-100%);font-size:11px;font-weight:600;padding:1px 6px;
+  border-radius:3px;background:rgba(0,0,0,.6);border-left:2px solid var(--mint);white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+.lbl.p{border-left-color:var(--pink)}
+#caption{position:fixed;left:16px;right:16px;bottom:calc(76px + env(safe-area-inset-bottom,0px));
+  font-size:15px;font-weight:500;color:var(--ink);text-shadow:0 1px 6px #000;pointer-events:none;min-height:1.3em}
+#bar{position:fixed;left:8px;right:8px;bottom:calc(10px + env(safe-area-inset-bottom,0px));display:flex;gap:6px;
+  overflow-x:auto;scrollbar-width:none;padding:2px}
+#bar::-webkit-scrollbar{display:none}
+button{font:inherit;font-size:13px;font-weight:600;color:var(--ink);background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--r);height:44px;padding:0 13px;white-space:nowrap;flex:0 0 auto;cursor:pointer;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+button[aria-pressed="true"]{border-color:var(--line-hi);background:rgba(40,110,140,.55);color:#fff}
+button:active{background:rgba(127,230,242,.35);border-color:var(--cyan)}
+button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+#sheet{position:fixed;left:8px;right:8px;bottom:calc(62px + env(safe-area-inset-bottom,0px));background:rgba(4,10,16,.92);
+  border:1px solid var(--line);border-radius:var(--r);padding:12px 14px 6px;display:none;max-width:520px;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+#sheet.on{display:block}
+.row{display:grid;grid-template-columns:118px 1fr 52px;align-items:center;gap:10px;margin-bottom:10px;font-size:13px}
+.row span:last-child{text-align:right;font-variant-numeric:tabular-nums;color:var(--cyan)}
+.row small{display:block;color:var(--ink-dim);font-size:11px;line-height:1.2}
+input[type=range]{width:100%;accent-color:var(--cyan);height:28px}
+#start{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:flex-end;padding:24px 22px calc(28px + env(safe-area-inset-bottom,0px));
+  background:radial-gradient(120% 70% at 50% 110%, rgba(42,107,199,.35), transparent 60%), #000}
+#start h1{font-size:clamp(54px,17vw,120px);line-height:.86;margin:0 0 14px;font-weight:700;letter-spacing:-.01em;
+  background:repeating-linear-gradient(180deg,var(--ink) 0 3px,transparent 3px 5px);-webkit-background-clip:text;background-clip:text;color:transparent}
+#start p{max-width:34em;color:var(--ink-dim);font-size:15px;line-height:1.5;margin:0 0 18px}
+#start p b{color:var(--ink);font-weight:600}
+#start .acts{display:flex;gap:8px;flex-wrap:wrap}
+#start .acts button{height:50px;font-size:15px;padding:0 18px}
+#start .acts button.main{background:var(--cyan);color:#001a20;border-color:var(--cyan)}
+#err{color:var(--pink);font-size:14px;margin-top:12px;min-height:1.2em;max-width:34em}
+#file{display:none}
+@media (min-width:900px){#pip{width:280px;max-width:none}#caption{font-size:17px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="labels"></div>
+<div id="hud"><div class="t">ЗІНИЦЯ</div><div id="hudl">—</div></div>
+<div id="pip" hidden><video id="vid" playsinline muted autoplay></video><canvas id="pipov"></canvas></div>
+<div id="caption"></div>
+
+<div id="sheet" role="dialog" aria-label="Налаштування">
+  <label class="row"><span>Деталізація<small>більше точок, повільніше</small></span><input id="sQ" type="range" min="0" max="2" step="1" value="1"><span id="vQ"></span></label>
+  <label class="row"><span>Висота камери<small>над землею, м</small></span><input id="sH" type="range" min="0.6" max="3" step="0.05" value="1.5"><span id="vH"></span></label>
+  <label class="row"><span>Глибина сцени<small>лівіше — далі горизонт</small></span><input id="sB" type="range" min="0.02" max="0.3" step="0.005" value="0.08"><span id="vB"></span></label>
+  <label class="row"><span>Кут огляду<small>діагональ, °</small></span><input id="sF" type="range" min="50" max="100" step="1" value="75"><span id="vF"></span></label>
+  <label class="row"><span>Крок розгортки<small>між променями, °</small></span><input id="sR" type="range" min="0.4" max="2" step="0.05" value="0.9"><span id="vR"></span></label>
+  <label class="row"><span>Розмір точок</span><input id="sP" type="range" min="0.6" max="3.5" step="0.1" value="1.6"><span id="vP"></span></label>
+  <label class="row"><span>Обрізка країв<small>менше — чистіше</small></span><input id="sE" type="range" min="0.02" max="0.2" step="0.005" value="0.06"><span id="vE"></span></label>
+</div>
+
+<nav id="bar" hidden>
+  <button id="bView">Вид: погоня</button>
+  <button id="bLidar" aria-pressed="true">Розгортка</button>
+  <button id="bTrail" aria-pressed="false">Шлейф</button>
+  <button id="bObj" aria-pressed="true">Обʼєкти</button>
+  <button id="bPause" aria-pressed="false">Пауза</button>
+  <button id="bFlip">Камера</button>
+  <button id="bPly">Зберегти PLY</button>
+  <button id="bSet" aria-pressed="false">Налаштування</button>
+</nav>
+
+<section id="start">
+  <h1>ЗІНИЦЯ</h1>
+  <p>Одна камера телефона, без лідару. Нейромережа оцінює глибину кожного пікселя, знаходить землю під тобою і будує хмару точок у метрах — як робо-таксі бачить вулицю. <b>Перший запуск качає ~30–60 МБ моделей</b>, далі вони беруться з кешу браузера.</p>
+  <div class="acts">
+    <button class="main" id="bCam">Увімкнути камеру</button>
+    <button id="bVid">Відкрити відео</button>
+  </div>
+  <div id="err"></div>
+  <input id="file" type="file" accept="video/*">
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+
+<!-- ====== CORE: чиста математика, тестується headless у node ====== -->
+<script id="core">
+const Core = (() => {
+  const VEH = new Set(['car','truck','bus','motorcycle','bicycle','train','boat']);
+  const PER = new Set(['person']);
+
+  function halfToFloat(h){
+    const s = (h & 0x8000) ? -1 : 1, e = (h >> 10) & 0x1f, f = h & 0x3ff;
+    if (e === 0) return s * Math.pow(2, -14) * (f / 1024);
+    if (e === 31) return f ? NaN : s * Infinity;
+    return s * Math.pow(2, e - 15) * (1 + f / 1024);
+  }
+  function toFloat32(data){
+    if (data instanceof Float32Array) return data;
+    if (data instanceof Uint16Array){ const o = new Float32Array(data.length); for (let i=0;i<data.length;i++) o[i]=halfToFloat(data[i]); return o; }
+    return Float32Array.from(data);
+  }
+  function intrinsics(W, H, diagFovDeg){
+    const f = Math.hypot(W, H) / (2 * Math.tan(diagFovDeg * Math.PI / 360));
+    return { f, cx: (W - 1) / 2, cy: (H - 1) / 2 };
+  }
+  // disparity → camera-space points (three.js convention: x right, y up, camera looks −z)
+  // buf: {cam:Float32Array, cls:Float32Array, pix:Int32Array, pixToPt:Int32Array}
+  function unproject(disp, W, H, o, clsMap, buf){
+    let mn = Infinity, mx = -Infinity;
+    for (let i=0;i<W*H;i++){ const d = disp[i]; if (d < mn) mn = d; if (d > mx) mx = d; }
+    const span = (mx - mn) || 1, beta = o.beta;
+    const z = buf.z && buf.z.length >= W*H ? buf.z : (buf.z = new Float32Array(W*H));
+    for (let i=0;i<W*H;i++) z[i] = 1 / ((disp[i] - mn) / span + beta);
+    const { f, cx, cy } = o.K, edge = o.edge;
+    buf.pixToPt.fill(-1, 0, W*H);
+    let n = 0;
+    for (let v=0; v<H; v++){
+      for (let u=0; u<W; u++){
+        const i = v*W + u, zi = z[i];
+        if (u < W-1){ const zr = z[i+1]; if (Math.abs(zi - zr) / Math.min(zi, zr) > edge) continue; }
+        if (v < H-1){ const zd = z[i+W]; if (Math.abs(zi - zd) / Math.min(zi, zd) > edge) continue; }
+        if (u > 0){ const zl = z[i-1]; if (Math.abs(zi - zl) / Math.min(zi, zl) > edge) continue; }
+        const k = n*3;
+        buf.cam[k]   =  (u - cx) / f * zi;
+        buf.cam[k+1] = -(v - cy) / f * zi;
+        buf.cam[k+2] = -zi;
+        buf.cls[n] = clsMap ? clsMap[i] : 0;
+        buf.pix[n] = i; buf.pixToPt[i] = n;
+        n++;
+      }
+    }
+    return n;
+  }
+  // RANSAC plane n·p + d = 0, n pointing up (n.y>0), camera above plane (d>0)
+  function fitPlane(P, cand, iters, relThresh, rand){
+    const m = cand.length; if (m < 50) return null;
+    let best = null, bestScore = 0;
+    const evalN = Math.min(m, 1500);
+    for (let it=0; it<iters; it++){
+      const a = cand[(rand()*m)|0]*3, b = cand[(rand()*m)|0]*3, c = cand[(rand()*m)|0]*3;
+      const ux = P[b]-P[a], uy = P[b+1]-P[a+1], uz = P[b+2]-P[a+2];
+      const vx = P[c]-P[a], vy = P[c+1]-P[a+1], vz = P[c+2]-P[a+2];
+      let nx = uy*vz - uz*vy, ny = uz*vx - ux*vz, nz = ux*vy - uy*vx;
+      const L = Math.hypot(nx, ny, nz); if (L < 1e-9) continue;
+      nx/=L; ny/=L; nz/=L;
+      if (ny < 0){ nx=-nx; ny=-ny; nz=-nz; }
+      if (ny < 0.5) continue;                       // not a floor-like plane
+      const d = -(nx*P[a] + ny*P[a+1] + nz*P[a+2]);
+      if (d <= 0) continue;                          // camera must be above
+      let score = 0;
+      const stride = m / evalN;
+      for (let j=0; j<evalN; j++){
+        const q = cand[(j*stride)|0]*3;
+        const r = Math.abs(nx*P[q] + ny*P[q+1] + nz*P[q+2] + d);
+        if (r < relThresh * -P[q+2]) score++;
+      }
+      if (score > bestScore){ bestScore = score; best = { n:[nx,ny,nz], d }; }
+    }
+    if (!best || bestScore < evalN * 0.25) return null;
+    best.inlierRatio = bestScore / evalN;
+    return best;
+  }
+  // quaternion [x,y,z,w] rotating unit vector n onto +Y
+  function rotToUp(n){
+    let x = -n[2], y = 0, z = n[0], w = 1 + n[1];
+    const L = Math.hypot(x, y, z, w); return [x/L, y/L, z/L, w/L];
+  }
+  function applyQ(q, x, y, z, out, o){
+    const [qx,qy,qz,qw] = q;
+    const ix = qw*x + qy*z - qz*y, iy = qw*y + qz*x - qx*z, iz = qw*z + qx*y - qy*x, iw = -qx*x - qy*y - qz*z;
+    out[o]   = ix*qw + iw*-qx + iy*-qz - iz*-qy;
+    out[o+1] = iy*qw + iw*-qy + iz*-qx - ix*-qz;
+    out[o+2] = iz*qw + iw*-qz + ix*-qy - iy*-qx;
+  }
+  function nlerpQ(a, b, t){
+    let dot = a[0]*b[0]+a[1]*b[1]+a[2]*b[2]+a[3]*b[3];
+    const s = dot < 0 ? -1 : 1;
+    const r = [0,1,2,3].map(i => a[i]*(1-t) + b[i]*s*t);
+    const L = Math.hypot(...r); return r.map(v => v/L);
+  }
+  function median(arr){
+    if (!arr.length) return NaN;
+    const s = Float64Array.from(arr).sort(); const h = s.length >> 1;
+    return s.length % 2 ? s[h] : (s[h-1] + s[h]) / 2;
+  }
+  function kind(label){ return VEH.has(label) ? 1 : PER.has(label) ? 2 : 0; }
+  function classMap(dets, W, H, out){
+    out.fill(0, 0, W*H);
+    for (const d of dets){
+      const k = kind(d.label); if (!k) continue;
+      const x0 = Math.max(0, Math.floor(d.box.xmin*W)), x1 = Math.min(W-1, Math.ceil(d.box.xmax*W));
+      const y0 = Math.max(0, Math.floor(d.box.ymin*H)), y1 = Math.min(H-1, Math.ceil(d.box.ymax*H));
+      for (let v=y0; v<=y1; v++) for (let u=x0; u<=x1; u++){ const i=v*W+u; if (k===2 || out[i]===0) out[i]=k; }
+    }
+    return out;
+  }
+  // detection → metric box in world space. tf: {q, s, camH}
+  function liftBox(det, W, H, K, buf, tf){
+    const k = kind(det.label); if (!k) return null;
+    const bx0 = det.box.xmin*W, bx1 = det.box.xmax*W, by0 = det.box.ymin*H, by1 = det.box.ymax*H;
+    const ix0 = Math.floor(bx0 + (bx1-bx0)*0.3), ix1 = Math.ceil(bx1 - (bx1-bx0)*0.3);
+    const iy0 = Math.floor(by0 + (by1-by0)*0.3), iy1 = Math.ceil(by1 - (by1-by0)*0.3);
+    const zs = [];
+    for (let v=Math.max(0,iy0); v<=Math.min(H-1,iy1); v++)
+      for (let u=Math.max(0,ix0); u<=Math.min(W-1,ix1); u++){
+        const p = buf.pixToPt[v*W+u]; if (p >= 0) zs.push(-buf.cam[p*3+2] * tf.s);
+      }
+    if (zs.length < 6) return null;
+    const Z = median(zs);
+    const uc = (bx0+bx1)/2, vc = (by0+by1)/2;
+    const w = (bx1-bx0) / K.f * Z, h = (by1-by0) / K.f * Z;
+    const c = [0,0,0];
+    applyQ(tf.q, (uc-K.cx)/K.f*Z, -(vc-K.cy)/K.f*Z, -Z, c, 0);
+    c[1] += tf.camH;
+    const l = k === 2 ? 0.6 : (w > 3 ? 2.0 : 4.4);
+    return { kind:k, label:det.label, score:det.score, x:c[0], y:Math.max(h/2, c[1]), z:c[2], w:Math.max(w,0.3), h:Math.max(h,0.3), l, dist:Math.hypot(c[0], c[2]) };
+  }
+  return { halfToFloat, toFloat32, intrinsics, unproject, fitPlane, rotToUp, applyQ, nlerpQ, median, kind, classMap, liftBox };
+})();
+if (typeof module !== 'undefined') module.exports = Core;
+</script>
+
+<!-- ====== APP ====== -->
+<script type="module">
+import { AutoModel, AutoProcessor, RawImage, pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2';
+env.allowLocalModels = false;
+try { env.backends.onnx.wasm.numThreads = 1; env.backends.onnx.wasm.proxy = false; } catch(e){}
+
+/* ---------- безпечний режим для iOS + чорна скринька падінь ---------- */
+const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const URLP = new URLSearchParams(location.search);
+const LS = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }, set(k,v){ try { localStorage.setItem(k,v); } catch(e){} } };
+const STAGE_NAMES = { camera:'вмикання камери', 'load-depth':'завантаження моделі глибини', 'first-frame':'першому кадрі', running:'роботі', 'load-det':'завантаженні детектора' };
+const lastStage = LS.get('zin.stage');
+const CRASHED = !!lastStage && lastStage !== 'ok';
+const crum = s => LS.set('zin.stage', s);
+// iOS: WebGPU-бекенд ORT нестабільний і жере памʼять → за замовчуванням WASM; ?gpu=1 — увімкнути примусово
+const ALLOW_GPU = URLP.get('gpu') === '1' || (!IS_IOS && URLP.get('gpu') !== '0');
+const SAFE = IS_IOS || CRASHED || URLP.get('safe') === '1';
+
+const $ = id => document.getElementById(id);
+const QUAL = SAFE ? [168, 196, 252] : [196, 252, 308];
+const SLOTS = SAFE ? 3 : 5;
+const MAXPER = Math.ceil(QUAL[2] * QUAL[2] * 1.8);   // ~16:9 при короткій стороні QUAL[2]
+const S = { q:SAFE ? (CRASHED ? 0 : 1) : 1, camH:1.5, beta:0.08, fov:75, beam:0.9, size:1.6, edge:0.06,
+  lidar:true, trail:false, obj:!SAFE, paused:false, facing:'environment', view:'chase' };
+
+/* ---------- surzhyk status ---------- */
+const cap = $('caption');
+const say = t => { cap.textContent = t; };
+
+/* ---------- three ---------- */
+const renderer = new THREE.WebGLRenderer({ canvas:$('gl'), antialias:false, powerPreference:'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, SAFE ? 1.5 : 2));
+renderer.setClearColor(0x000000, 1);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 400);
+scene.add(new THREE.HemisphereLight(0xdff4ff, 0x0a1622, 1.1));
+const sun = new THREE.DirectionalLight(0xffffff, 0.6); sun.position.set(-6, 12, 8); scene.add(sun);
+
+// point cloud
+const geo = new THREE.BufferGeometry();
+const posArr = new Float32Array(SLOTS*MAXPER*3), clsArr = new Float32Array(SLOTS*MAXPER).fill(-1), fiArr = new Float32Array(SLOTS*MAXPER);
+for (let s=0;s<SLOTS;s++) fiArr.fill(s, s*MAXPER, (s+1)*MAXPER);
+const aPos = new THREE.BufferAttribute(posArr, 3).setUsage(THREE.DynamicDrawUsage);
+const aCls = new THREE.BufferAttribute(clsArr, 1).setUsage(THREE.DynamicDrawUsage);
+geo.setAttribute('position', aPos); geo.setAttribute('cls', aCls); geo.setAttribute('fi', new THREE.BufferAttribute(fiArr, 1));
+geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4);
+const U = { uHead:{value:0}, uN:{value:SLOTS}, uSize:{value:S.size}, uLidar:{value:1}, uBeam:{value:S.beam*Math.PI/180},
+  uCamH:{value:S.camH}, uTrail:{value:0}, uDpr:{value:renderer.getPixelRatio()} };
+const mat = new THREE.ShaderMaterial({ uniforms:U, vertexShader:`
+  attribute float cls; attribute float fi;
+  uniform float uHead,uN,uSize,uLidar,uBeam,uCamH,uTrail,uDpr;
+  varying vec3 vCol;
+  void main(){
+    float age = mod(uHead - fi + uN, uN);
+    float a = uTrail > 0.5 ? 1.0 - age/uN : (age < 0.5 ? 1.0 : 0.0);
+    if (cls < -0.5) a = 0.0;
+    vec3 p = position;
+    float r = length(p.xz) + 1e-3;
+    if (uLidar > 0.5 && cls < 0.5){
+      float el = atan(p.y - uCamH, r);
+      if (fract(el / uBeam) > 0.42) a = 0.0;
+    }
+    vec3 c;
+    if (p.y < 0.3) c = vec3(0.16,0.42,0.80) * (0.55 + 0.45*exp(-r/35.0));
+    else c = mix(vec3(0.45,0.86,0.95), vec3(0.94,0.97,1.0), clamp(p.y/7.0,0.0,1.0));
+    if (cls > 0.5 && cls < 1.5) c = vec3(0.62,0.95,0.86);
+    if (cls > 1.5) c = vec3(1.0,0.50,0.75);
+    vec4 mv = modelViewMatrix * vec4(p,1.0);
+    c *= mix(1.0, 0.3, smoothstep(30.0, 90.0, -mv.z)) * (0.45 + 0.55*a);
+    gl_Position = projectionMatrix * mv;
+    gl_PointSize = a > 0.0 ? clamp(uSize * uDpr * 26.0 / -mv.z, 1.0, 9.0) : 0.0;
+    vCol = c;
+  }`, fragmentShader:`
+  varying vec3 vCol;
+  void main(){ gl_FragColor = vec4(vCol, 1.0); }` });
+const cloud = new THREE.Points(geo, mat); cloud.frustumCulled = false; scene.add(cloud);
+
+// ego shuttle (камера стоїть на передку)
+const ego = new THREE.Group();
+const bodyM = new THREE.MeshStandardMaterial({ color:0xd9dee2, roughness:.55, metalness:.1 });
+const body = new THREE.Mesh(new THREE.BoxGeometry(2.0, 2.2, 4.4), bodyM); body.position.set(0, 1.25, 2.35); ego.add(body);
+const glass = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.9), new THREE.MeshStandardMaterial({ color:0x1a2228, roughness:.2 }));
+glass.position.set(0, 1.75, 0.14); glass.rotation.y = Math.PI; ego.add(glass);
+const glassB = glass.clone(); glassB.position.z = 4.56; glassB.rotation.y = 0; ego.add(glassB);
+const strip = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.05, 0.02), new THREE.MeshBasicMaterial({ color:0xff4a5a }));
+strip.position.set(0, 0.95, 4.56); ego.add(strip);
+const pod = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.28, 20), bodyM); pod.position.set(0, 2.5, 0.8); ego.add(pod);
+const podTop = new THREE.Mesh(new THREE.SphereGeometry(0.22, 20, 10, 0, Math.PI*2, 0, Math.PI/2), bodyM); podTop.position.set(0, 2.64, 0.8); ego.add(podTop);
+const halo = new THREE.Mesh(new THREE.RingGeometry(3.2, 3.25, 64), new THREE.MeshBasicMaterial({ color:0x2a6bc7, transparent:true, opacity:.5 }));
+halo.rotation.x = -Math.PI/2; halo.position.set(0, 0.02, 2.3); ego.add(halo);
+scene.add(ego);
+
+// detection boxes
+const boxGeo = new THREE.BoxGeometry(1,1,1), edgeGeo = new THREE.EdgesGeometry(boxGeo);
+const boxes = [];
+for (let i=0;i<12;i++){
+  const g = new THREE.Group();
+  const fill = new THREE.Mesh(boxGeo, new THREE.MeshBasicMaterial({ color:0x9ff2db, transparent:true, opacity:.16, depthWrite:false }));
+  const edges = new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({ color:0xc8fff0 }));
+  g.add(fill, edges); g.visible = false; scene.add(g);
+  const el = document.createElement('div'); el.className = 'lbl'; el.hidden = true; $('labels').appendChild(el);
+  boxes.push({ g, fill, edges, el, data:null });
+}
+
+/* ---------- view control ---------- */
+const VIEWS = { chase:{ theta:0, phi:1.18, r:15, label:'погоня' }, top:{ theta:0, phi:0.06, r:42, label:'зверху' } };
+const orb = { theta:0, phi:1.18, r:15, tTheta:0, tPhi:1.18, tR:15 };
+const target = new THREE.Vector3(0, 1, -11);
+function setView(v){
+  S.view = v;
+  if (VIEWS[v]) Object.assign(orb, { tTheta:VIEWS[v].theta, tPhi:VIEWS[v].phi, tR:VIEWS[v].r });
+  $('bView').textContent = 'Вид: ' + (VIEWS[v] ? VIEWS[v].label : 'вільний');
+}
+const ptrs = new Map(); let pinch0 = 0, r0 = 0;
+const glc = $('gl');
+glc.addEventListener('pointerdown', e => { glc.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x:e.clientX, y:e.clientY });
+  if (ptrs.size === 2){ const [a,b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x-b.x, a.y-b.y); r0 = orb.tR; } });
+glc.addEventListener('pointermove', e => {
+  const p = ptrs.get(e.pointerId); if (!p) return;
+  if (ptrs.size === 1){
+    orb.tTheta -= (e.clientX - p.x) * 0.006;
+    orb.tPhi = Math.min(1.5, Math.max(0.05, orb.tPhi - (e.clientY - p.y) * 0.005));
+    if (S.view !== 'free') setView('free');
+  }
+  p.x = e.clientX; p.y = e.clientY;
+  if (ptrs.size === 2){ const [a,b] = [...ptrs.values()]; const d = Math.hypot(a.x-b.x, a.y-b.y);
+    if (pinch0 > 0) orb.tR = Math.min(90, Math.max(4, r0 * pinch0 / d)); if (S.view !== 'free') setView('free'); }
+});
+const up = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch0 = 0; };
+glc.addEventListener('pointerup', up); glc.addEventListener('pointercancel', up);
+glc.addEventListener('wheel', e => { e.preventDefault(); orb.tR = Math.min(90, Math.max(4, orb.tR * (1 + e.deltaY*0.001))); }, { passive:false });
+
+function resize(){
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false); camera.aspect = w/h; camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize); resize();
+
+/* ---------- labels / pip overlay ---------- */
+const pipov = $('pipov'), pctx = pipov.getContext('2d');
+const v3 = new THREE.Vector3();
+function drawLabels(){
+  const w = innerWidth, h = innerHeight;
+  for (const b of boxes){
+    if (!b.g.visible || !b.data){ b.el.hidden = true; continue; }
+    v3.set(b.data.x, b.data.y + b.data.h/2 + 0.3, b.data.z).project(camera);
+    if (v3.z > 1 || Math.abs(v3.x) > 1.1 || Math.abs(v3.y) > 1.1){ b.el.hidden = true; continue; }
+    b.el.hidden = false;
+    b.el.style.left = ((v3.x+1)/2*w) + 'px'; b.el.style.top = ((1-v3.y)/2*h) + 'px';
+  }
+}
+function drawPip(dets){
+  const W = pipov.clientWidth, H = pipov.clientHeight, d = devicePixelRatio;
+  if (pipov.width !== W*d){ pipov.width = W*d; pipov.height = H*d; }
+  pctx.setTransform(d,0,0,d,0,0); pctx.clearRect(0,0,W,H);
+  const vw = vid.videoWidth || 4, vh = vid.videoHeight || 3;
+  const sc = Math.max(W/vw, H/vh), ox = (W - vw*sc)/2, oy = (H - vh*sc)/2;
+  pctx.lineWidth = 1.5; pctx.font = '600 10px ' + getComputedStyle(document.body).fontFamily;
+  for (const t of dets){
+    const k = Core.kind(t.label); if (!k) continue;
+    const x = ox + t.box.xmin*vw*sc, y = oy + t.box.ymin*vh*sc, bw = (t.box.xmax-t.box.xmin)*vw*sc, bh = (t.box.ymax-t.box.ymin)*vh*sc;
+    pctx.strokeStyle = k === 2 ? '#FF7FBF' : '#9FF2DB'; pctx.strokeRect(x, y, bw, bh);
+  }
+}
+
+/* ---------- models ---------- */
+let depthModel, depthProc, detector = null, device = 'wasm', dtypeD = 'q8';
+const vid = $('vid');
+async function pickDevice(){
+  if (!ALLOW_GPU) return 'wasm';
+  try { if (navigator.gpu && await navigator.gpu.requestAdapter()) return 'webgpu'; } catch(e){}
+  return 'wasm';
+}
+const progress = name => p => {
+  if (p.status === 'progress' && p.total) say(`Тягну ${name}: ${Math.round(p.loaded/p.total*100)}% — не кіпішуй, це один раз`);
+};
+async function loadDepth(){
+  device = await pickDevice();
+  const id = 'onnx-community/depth-anything-v2-small';
+  say('Будю нейронку глибини, хай продере очі…');
+  try {
+    dtypeD = device === 'webgpu' ? 'fp16' : 'q8';
+    depthModel = await AutoModel.from_pretrained(id, { device, dtype:dtypeD, progress_callback:progress('мізки глибини') });
+  } catch (e){
+    console.warn('fallback to wasm', e); device = 'wasm'; dtypeD = 'q8';
+    depthModel = await AutoModel.from_pretrained(id, { device, dtype:dtypeD, progress_callback:progress('мізки глибини') });
+  }
+  depthProc = await AutoProcessor.from_pretrained(id);
+}
+let detLoading = false;
+async function loadDetector(){
+  if (detector || detLoading) return;
+  if (frame < 25){ say('Детектор підтягну, як тільки глибина стабільно запрацює'); return; }
+  detLoading = true; crum('load-det');
+  try {
+    detector = await pipeline('object-detection', 'Xenova/yolos-tiny',
+      { device, dtype: device === 'webgpu' ? 'fp32' : 'q8', progress_callback:progress('детектор тачок і людей') });
+    crum('ok');
+  } catch (e){ console.warn(e); say('Детектор не завівся — їдемо без боксів, тільки глибина'); }
+  detLoading = false;
+}
+
+/* ---------- capture ---------- */
+let stream = null;
+async function startCamera(){
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  stream = await navigator.mediaDevices.getUserMedia({ audio:false,
+    video:{ facingMode:{ ideal:S.facing }, width:{ ideal:1280 }, height:{ ideal:720 } } });
+  vid.srcObject = stream; vid.src = ''; await vid.play();
+}
+async function startFile(f){
+  if (stream){ stream.getTracks().forEach(t => t.stop()); stream = null; }
+  vid.srcObject = null; vid.src = URL.createObjectURL(f); vid.loop = true; await vid.play();
+}
+
+/* ---------- pipeline ---------- */
+const capC = document.createElement('canvas'), capX = capC.getContext('2d', { willReadFrequently:true });
+const buf = { cam:new Float32Array(MAXPER*3), cls:new Float32Array(MAXPER), pix:new Int32Array(MAXPER), pixToPt:new Int32Array(MAXPER), z:null };
+let clsMap = new Uint8Array(MAXPER);
+let tf = { q:[0,0,0,1], s:1, camH:S.camH }, groundOk = false;
+let head = 0; const slotCount = new Array(SLOTS).fill(0);
+let dets = [], frame = 0, msDepth = 0, lastN = 0, lastK = null, lastWH = [0,0];
+
+function captureSize(){
+  const q = QUAL[S.q], vw = vid.videoWidth, vh = vid.videoHeight;
+  const sc = q / Math.min(vw, vh);
+  let w = Math.round(vw*sc), h = Math.round(vh*sc);
+  const lim = MAXPER / (w*h); if (lim < 1){ w = Math.floor(w*Math.sqrt(lim)); h = Math.floor(h*Math.sqrt(lim)); }
+  return [w, h];
+}
+
+async function step(){
+  const [cw, ch] = captureSize();
+  if (capC.width !== cw || capC.height !== ch){ capC.width = cw; capC.height = ch; }
+  capX.drawImage(vid, 0, 0, cw, ch);
+  const img = RawImage.fromCanvas(capC);
+  depthProc.image_processor.size = { width:QUAL[S.q], height:QUAL[S.q] };
+
+  const t0 = performance.now();
+  const inputs = await depthProc(img);
+  const out = await depthModel(inputs);
+  const pd = out.predicted_depth;
+  const W = pd.dims[pd.dims.length-1], H = pd.dims[pd.dims.length-2];
+  const disp = Core.toFloat32(pd.data);
+  msDepth = msDepth*0.7 + (performance.now()-t0)*0.3;
+  if (W*H > MAXPER) return;
+
+  if (S.obj && detector && frame % (SAFE ? 5 : 3) === 0){
+    try { dets = await detector(img, { threshold:0.45, percentage:true }); } catch(e){ dets = []; }
+  } else if (!S.obj) dets = [];
+  frame++;
+
+  const K = Core.intrinsics(W, H, S.fov);
+  Core.classMap(dets, W, H, clsMap);
+  const n = Core.unproject(disp, W, H, { K, beta:S.beta, edge:S.edge }, clsMap, buf);
+
+  // ground candidates: lower 40% of frame, not on objects
+  const cand = [];
+  for (let i=0;i<n;i++){ const v = (buf.pix[i] / W) | 0; if (v > H*0.6 && buf.cls[i] === 0) cand.push(i); }
+  const pl = Core.fitPlane(buf.cam, cand, 140, 0.03, Math.random);
+  tf.camH = S.camH;
+  if (pl){
+    const qNew = Core.rotToUp(pl.n), sNew = S.camH / pl.d;
+    tf.q = groundOk ? Core.nlerpQ(tf.q, qNew, 0.25) : qNew;
+    tf.s = groundOk ? Math.exp(Math.log(tf.s)*0.75 + Math.log(sNew)*0.25) : sNew;
+    groundOk = true;
+  }
+
+  // write into ring slot
+  head = (head + 1) % SLOTS;
+  const base = head*MAXPER, tmp = [0,0,0];
+  for (let i=0;i<n;i++){
+    const k = i*3;
+    Core.applyQ(tf.q, buf.cam[k]*tf.s, buf.cam[k+1]*tf.s, buf.cam[k+2]*tf.s, posArr, (base+i)*3);
+    posArr[(base+i)*3+1] += tf.camH;
+    clsArr[base+i] = buf.cls[i];
+  }
+  const prev = slotCount[head];
+  if (prev > n) clsArr.fill(-1, base+n, base+prev);
+  slotCount[head] = n;
+  const cnt = Math.max(n, prev);
+  aPos.updateRange.offset = base*3; aPos.updateRange.count = cnt*3; aPos.needsUpdate = true;
+  aCls.updateRange.offset = base; aCls.updateRange.count = cnt; aCls.needsUpdate = true;
+  U.uHead.value = head;
+
+  // boxes
+  let bi = 0;
+  for (const d of dets){
+    if (bi >= boxes.length) break;
+    const L = Core.liftBox(d, W, H, K, buf, tf); if (!L || L.dist > 80) continue;
+    const b = boxes[bi++];
+    b.data = L; b.g.visible = true;
+    b.g.position.set(L.x, L.y, L.z); b.g.scale.set(L.w, L.h, L.l);
+    b.g.lookAt(0, L.y, 0);
+    const col = L.kind === 2 ? 0xff7fbf : 0x9ff2db;
+    b.fill.material.color.setHex(col); b.edges.material.color.setHex(L.kind === 2 ? 0xffc2e0 : 0xc8fff0);
+    b.el.className = 'lbl' + (L.kind === 2 ? ' p' : '');
+    b.el.textContent = (L.kind === 2 ? 'людина ' : 'авто ') + L.dist.toFixed(1) + ' м';
+  }
+  for (; bi<boxes.length; bi++){ boxes[bi].g.visible = false; boxes[bi].data = null; }
+  drawPip(dets);
+  lastN = n; lastK = K; lastWH = [W, H];
+  if (pd.dispose) pd.dispose();
+  if (inputs.pixel_values && inputs.pixel_values.dispose) inputs.pixel_values.dispose();
+  // авто-зниження деталізації, якщо телефон захлинається
+  if (msDepth > 1400 && S.q > 0 && frame > 5){ S.q--; $('sQ').value = S.q; $('vQ').textContent = QUAL[S.q] + 'p'; say('Телефон пихтить — скинув деталізацію до ' + QUAL[S.q] + 'p'); msDepth = 600; }
+  if (frame === 1) crum('running');
+  if (frame === 40) crum('ok');
+  // детектор — тільки після стабільного старту, ніколи паралельно з глибиною
+  if (frame === 25 && S.obj) loadDetector();
+}
+
+async function loop(){
+  for (;;){
+    if (S.paused || vid.readyState < 2 || !vid.videoWidth){ await new Promise(r => setTimeout(r, 120)); continue; }
+    try { await step(); }
+    catch (e){ console.error(e); say('Шось гепнулось на кадрі: ' + (e.message || e) + '. Спробуй меншу деталізацію.'); await new Promise(r => setTimeout(r, 800)); }
+    await new Promise(r => setTimeout(r, 0));
+  }
+}
+
+/* ---------- HUD + render ---------- */
+const hudl = $('hudl');
+let lastHud = 0, capTimer = 0;
+const lines = [
+  'Камера одна, а бачу як з лідаром. Ну майже.',
+  'Земля знайдена — тепер усе міряю в метрах від неї.',
+  'Кільця на асфальті — це я косплею лідарну розгортку.',
+  'Далі 30 м глибина вже пливе — фізику не наїбеш.',
+  'Покрути вид пальцем, щипком наближай.'
+];
+function render(t){
+  requestAnimationFrame(render);
+  orb.theta += (orb.tTheta - orb.theta)*0.08; orb.phi += (orb.tPhi - orb.phi)*0.08; orb.r += (orb.tR - orb.r)*0.08;
+  camera.position.set(target.x + orb.r*Math.sin(orb.phi)*Math.sin(orb.theta), target.y + orb.r*Math.cos(orb.phi), target.z + orb.r*Math.sin(orb.phi)*Math.cos(orb.theta));
+  camera.lookAt(target);
+  halo.material.opacity = 0.3 + 0.2*Math.sin(t*0.003);
+  renderer.render(scene, camera);
+  drawLabels();
+  if (t - lastHud > 400 && depthModel){
+    lastHud = t;
+    const tilt = Math.acos(Math.min(1, 1 - 2*(tf.q[0]**2 + tf.q[2]**2))) * 180/Math.PI;
+    hudl.innerHTML =
+      `${device === 'webgpu' ? 'WebGPU' : 'WASM'} · DA-V2 small ${dtypeD}<br>` +
+      `глибина <b>${msDepth.toFixed(0)} мс</b> · ${(1000/Math.max(msDepth,1)).toFixed(1)} к/с<br>` +
+      `точок <b>${lastN.toLocaleString('uk')}</b> · сітка ${lastWH[0]}×${lastWH[1]}<br>` +
+      `земля <b>${groundOk ? 'є' : 'шукаю'}</b> · нахил ${tilt.toFixed(0)}° · масштаб ${tf.s.toFixed(2)}<br>` +
+      `обʼєктів ${dets.filter(d => Core.kind(d.label)).length}${S.obj && !detector ? ' (детектор вантажиться)' : ''}`;
+    if (t - capTimer > 6000 && lastN){ capTimer = t; say(groundOk ? lines[(t/6000|0) % lines.length] : 'Наведи камеру трохи вниз — мені треба побачити землю.'); }
+  }
+}
+requestAnimationFrame(render);
+
+/* ---------- UI ---------- */
+function toggle(btn, key, after){ btn.addEventListener('click', () => { S[key] = !S[key]; btn.setAttribute('aria-pressed', S[key]); after && after(); }); }
+$('bView').addEventListener('click', () => setView(S.view === 'chase' ? 'top' : 'chase'));
+toggle($('bLidar'), 'lidar', () => U.uLidar.value = S.lidar ? 1 : 0);
+toggle($('bTrail'), 'trail', () => U.uTrail.value = S.trail ? 1 : 0);
+toggle($('bObj'), 'obj', () => { if (S.obj) loadDetector(); else { boxes.forEach(b => { b.g.visible = false; b.data = null; }); drawPip([]); } });
+toggle($('bPause'), 'paused', () => { S.paused ? vid.pause() : vid.play(); });
+$('bFlip').addEventListener('click', async () => {
+  S.facing = S.facing === 'environment' ? 'user' : 'environment';
+  try { await startCamera(); groundOk = false; } catch(e){ say('Іншу камеру не дали: ' + e.message); }
+});
+$('bSet').addEventListener('click', () => { const on = $('sheet').classList.toggle('on'); $('bSet').setAttribute('aria-pressed', on); });
+$('bPly').addEventListener('click', () => {
+  const base = head*MAXPER, n = slotCount[head]; if (!n){ say('Ще нема чого зберігати.'); return; }
+  const rows = [];
+  for (let i=0;i<n;i++){
+    const k = (base+i)*3, c = clsArr[base+i], y = posArr[k+1];
+    const rgb = c === 2 ? '255 127 191' : c === 1 ? '159 242 219' : y < 0.3 ? '42 107 199' : '200 236 248';
+    rows.push(`${posArr[k].toFixed(3)} ${y.toFixed(3)} ${posArr[k+2].toFixed(3)} ${rgb}`);
+  }
+  const hdr = `ply\nformat ascii 1.0\nelement vertex ${n}\nproperty float x\nproperty float y\nproperty float z\nproperty uchar red\nproperty uchar green\nproperty uchar blue\nend_header\n`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([hdr + rows.join('\n')], { type:'application/octet-stream' }));
+  a.download = `zinytsia-${Date.now()}.ply`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  say(`Зберіг ${n.toLocaleString('uk')} точок у PLY. Кидай у Blender чи MeshLab.`);
+});
+const sliders = [
+  ['sQ','vQ', v => { S.q = +v; return QUAL[S.q] + 'p'; }],
+  ['sH','vH', v => { S.camH = +v; U.uCamH.value = S.camH; return (+v).toFixed(2); }],
+  ['sB','vB', v => { S.beta = +v; return (+v).toFixed(3); }],
+  ['sF','vF', v => { S.fov = +v; return v + '°'; }],
+  ['sR','vR', v => { S.beam = +v; U.uBeam.value = S.beam*Math.PI/180; return (+v).toFixed(2) + '°'; }],
+  ['sP','vP', v => { S.size = +v; U.uSize.value = S.size; return (+v).toFixed(1); }],
+  ['sE','vE', v => { S.edge = +v; return (+v).toFixed(3); }],
+];
+$('sQ').value = S.q;
+$('bObj').setAttribute('aria-pressed', S.obj);
+if (CRASHED) $('err').textContent = `Минулого разу застосунок впав на етапі: ${STAGE_NAMES[lastStage] || lastStage}. Вмикаю безпечний режим: менша деталізація, без детектора, без WebGPU.`;
+else if (IS_IOS) $('err').textContent = '';
+for (const [s, o, fn] of sliders){ const el = $(s); const upd = () => $(o).textContent = fn(el.value); el.addEventListener('input', upd); upd(); }
+
+async function boot(kind, file){
+  const err = $('err'); err.textContent = '';
+  $('bCam').disabled = $('bVid').disabled = true;
+  try {
+    if (kind === 'cam'){
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error('Браузер не дає доступу до камери. Відкрий сторінку через https (GitHub Pages) у Safari або Chrome.');
+      crum('camera'); await startCamera();
+    } else await startFile(file);
+    $('start').hidden = true; $('pip').hidden = false; $('bar').hidden = false;
+    crum('load-depth'); await loadDepth();
+    crum('first-frame');
+    say('Нейронка проснулась. Шукаю землю під ногами…');
+    loop();
+  } catch (e){
+    console.error(e);
+    $('start').hidden = false; $('pip').hidden = true; $('bar').hidden = true;
+    const m = e && e.name === 'NotAllowedError' ? 'Доступ до камери заборонено. Дозволь камеру в налаштуваннях сайту й натисни ще раз.' : (e.message || String(e));
+    err.textContent = m;
+  }
+  $('bCam').disabled = $('bVid').disabled = false;
+}
+$('bCam').addEventListener('click', () => boot('cam'));
+$('bVid').addEventListener('click', () => $('file').click());
+$('file').addEventListener('change', e => { const f = e.target.files[0]; if (f) boot('file', f); });
+</script>
+</body>
+</html>
